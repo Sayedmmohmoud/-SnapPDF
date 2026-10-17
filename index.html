@@ -448,10 +448,12 @@
             };
 
             toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-xs font-medium transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type]}`;
-            toast.innerHTML = `
-                <i class="fa-solid ${icons[type]} text-sm"></i>
-                <span class="flex-1">${message}</span>
-            `;
+            const icon = document.createElement('i');
+            icon.className = `fa-solid ${icons[type]} text-sm`;
+            const messageElement = document.createElement('span');
+            messageElement.className = 'flex-1';
+            messageElement.textContent = message;
+            toast.append(icon, messageElement);
             toastContainer.appendChild(toast);
 
             requestAnimationFrame(() => {
@@ -600,6 +602,13 @@
                 const isSideways = item.rotation === 90 || item.rotation === 270;
                 const displayW = isSideways ? item.height : item.width;
                 const displayH = isSideways ? item.width : item.height;
+                const escapedName = item.name.replace(/[&<>"']/g, character => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[character]);
 
                 card.innerHTML = `
                     <!-- Top Bar: Page Number & Drag Handle -->
@@ -608,8 +617,8 @@
                             <span class="w-6 h-6 rounded-lg bg-brand-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">
                                 ${index + 1}
                             </span>
-                            <span class="text-xs font-medium text-slate-600 dark:text-slate-300 truncate max-w-[130px]" title="${item.name}">
-                                ${item.name}
+                            <span class="text-xs font-medium text-slate-600 dark:text-slate-300 truncate max-w-[130px]" title="${escapedName}">
+                                ${escapedName}
                             </span>
                         </div>
                         <i class="fa-solid fa-grip-vertical text-slate-400 text-xs"></i>
@@ -617,7 +626,7 @@
 
                     <!-- Thumbnail Container -->
                     <div class="relative h-44 bg-slate-100 dark:bg-slate-950/70 flex items-center justify-center p-4 overflow-hidden">
-                        <img src="${item.dataUrl}" alt="${item.name}"
+                        <img src="${item.dataUrl}" alt="${escapedName}"
                             style="transform: rotate(${item.rotation}deg);"
                             class="max-h-36 max-w-full object-contain rounded shadow-xs transition-transform duration-300 select-none pointer-events-none">
                         
@@ -775,7 +784,7 @@
                 const isMatch = btn.getAttribute(dataAttr) === String(activeValue);
                 if (isMatch) {
                     btn.className = btn.className.replace(/border-slate-\S+|text-slate-\S+|bg-transparent/g, '');
-                    btn.classList.add('border-brand-600', 'bg-brand-50/80', 'dark:bg-brand-500/15', 'text-brand-600', 'dark:text-brand-400', ' ring-1', 'ring-brand-500');
+                    btn.classList.add('border-brand-600', 'bg-brand-50/80', 'dark:bg-brand-500/15', 'text-brand-600', 'dark:text-brand-400', 'ring-1', 'ring-brand-500');
                 } else {
                     btn.classList.remove('border-brand-600', 'bg-brand-50/80', 'dark:bg-brand-500/15', 'text-brand-600', 'dark:text-brand-400', 'ring-1', 'ring-brand-500');
                     btn.classList.add('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
