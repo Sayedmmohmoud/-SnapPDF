@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapPDF — Modern Image to PDF Converter</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SortableJS for smooth drag-and-drop reordering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <!-- jsPDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Drag & Drop Visual Feedback */
+        .dropzone-active {
+            border-color: #4f46e5 !important;
+            background-color: rgba(99, 102, 241, 0.08) !important;
+            transform: scale(1.01);
+        }
+        /* SortableJS Ghost & Dragging Styles */
+        .sortable-ghost {
+            opacity: 0.35;
+            border: 2px dashed #6366f1 !important;
+        }
+        .sortable-drag {
+            cursor: grabbing !important;
+            transform: rotate(2deg) scale(1.03);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1) !important;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+                    <i class="fa-solid fa-file-pdf text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight flex items-center gap-2">
+                        SnapPDF
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400">Client-Side</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">100% private browser-based Image to PDF converter</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Load Sample Images Button for instant testing -->
+                <button id="loadDemoBtn" class="text-xs sm:text-sm font-medium px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i>
+                    <span>Load Sample Images</span>
+                </button>
+
+                <!-- Dark Mode Toggle -->
+                <button id="themeToggleBtn" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition" title="Toggle Theme">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-amber-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+
+            <!-- Left Column: Upload & Interactive Image Grid (8 cols on desktop) -->
+            <div class="lg:col-span-8 space-y-6">
+
+                <!-- Drag and Drop Upload Area -->
+                <div id="dropzone" class="relative group border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 rounded-2xl bg-white dark:bg-slate-900 p-6 sm:p-10 text-center transition-all duration-200 cursor-pointer shadow-sm">
+                    <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp" class="hidden">
+                    
+                    <div class="max-w-md mx-auto space-y-4">
+                        <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-100">
+                                Drag & drop your images here, or <span class="text-brand-600 dark:text-brand-400 underline">browse</span>
+                            </h2>
+                            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                Supports JPG, PNG, and WEBP formats. Select multiple files at once.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
+                            <span class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                <i class="fa-regular fa-image mr-1 text-brand-500"></i>JPG / JPEG
+                            </span>
+                            <span class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                <i class="fa-regular fa-file-image mr-1 text-emerald-500"></i>PNG
+                            </span>
+                            <span class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                <i class="fa-solid fa-bolt mr-1 text-amber-500"></i>WEBP
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image Grid Section (Visible when images exist) -->
+                <div id="workspaceSection" class="hidden space-y-4">
+                    <!-- Workspace Toolbar -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <h3 class="font-semibold text-sm sm:text-base">
+                                Pages (<span id="imageCountBadge">0</span>)
+                            </h3>
+                            <span class="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline ml-1">
+                                • Drag cards or use arrows to reorder
+                            </span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button id="addMoreBtn" class="px-3 py-1.5 text-xs font-medium rounded-xl bg-brand-50 hover:bg-brand-100 dark:bg-brand-500/10 dark:hover:bg-brand-500/20 text-brand-600 dark:text-brand-400 transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-plus"></i> Add More
+                            </button>
+                            <button id="sortAZBtn" class="px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5" title="Sort by Filename">
+                                <i class="fa-solid fa-arrow-down-a-z"></i> Sort
+                            </button>
+                            <button id="rotateAllBtn" class="px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5" title="Rotate All 90°">
+                                <i class="fa-solid fa-rotate-right"></i> Rotate All
+                            </button>
+                            <button id="clearAllBtn" class="px-3 py-1.5 text-xs font-medium rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-trash-can"></i> Clear All
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Sortable Grid -->
+                    <div id="imageGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        <!-- Dynamically populated cards -->
+                    </div>
+                </div>
+
+                <!-- Empty State Placeholder -->
+                <div id="emptyState" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center shadow-sm">
+                    <div class="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center mb-3">
+                        <i class="fa-solid fa-layer-group text-xl"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">No images uploaded yet</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                        Upload photos, scanned receipts, or documents above, or click <strong>"Load Sample Images"</strong> in the top bar to test the converter right away.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Right Column: PDF Layout Settings & Export (4 cols on desktop) -->
+            <div class="lg:col-span-4 lg:sticky lg:top-24">
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <!-- Panel Header -->
+                    <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-sliders text-brand-500"></i>
+                            <h2 class="font-bold text-base">PDF Layout Settings</h2>
+                        </div>
+                        <button id="resetSettingsBtn" class="text-xs text-slate-400 hover:text-brand-500 transition">
+                            Reset
+                        </button>
+                    </div>
+
+                    <!-- Settings Form -->
+                    <div class="p-5 space-y-5">
+
+                        <!-- Custom File Name -->
+                        <div>
+                            <label for="pdfFileName" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                Output File Name
+                            </label>
+                            <div class="relative flex items-center">
+                                <input type="text" id="pdfFileName" value="converted-images" placeholder="Enter file name..."
+                                    class="w-full pl-3.5 pr-14 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                                <span class="absolute right-3 text-xs font-semibold text-slate-400 select-none">.pdf</span>
+                            </div>
+                        </div>
+
+                        <!-- Page Size -->
+                        <div>
+                            <label for="pageSize" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                Page Size
+                            </label>
+                            <select id="pageSize" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                                <option value="a4">A4 (210 × 297 mm)</option>
+                                <option value="letter">US Letter (215.9 × 279.4 mm)</option>
+                                <option value="fit">Fit to Image Dimensions</option>
+                            </select>
+                        </div>
+
+                        <!-- Page Orientation -->
+                        <div id="orientationContainer">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                Page Orientation
+                            </label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" data-orientation="portrait" class="orient-btn active-opt py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1.5 transition">
+                                    <i class="fa-regular fa-file text-base"></i>
+                                    <span>Portrait</span>
+                                </button>
+                                <button type="button" data-orientation="landscape" class="orient-btn py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1.5 transition">
+                                    <i class="fa-regular fa-file fa-rotate-90 text-base"></i>
+                                    <span>Landscape</span>
+                                </button>
+                                <button type="button" data-orientation="auto" class="orient-btn py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1.5 transition" title="Automatically matches each image's aspect ratio">
+                                    <i class="fa-solid fa-wand-sparkles text-base"></i>
+                                    <span>Auto</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Page Margin -->
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                                Page Margins
+                            </label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" data-margin="0" class="margin-btn py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition">
+                                    <span class="w-5 h-6 border-2 border-current rounded-sm bg-current/20"></span>
+                                    <span>No Margin</span>
+                                </button>
+                                <button type="button" data-margin="10" class="margin-btn active-opt py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition">
+                                    <span class="w-5 h-6 border border-current rounded-sm p-0.5 flex"><span class="w-full h-full bg-current/30 rounded-xs"></span></span>
+                                    <span>Small (10mm)</span>
+                                </button>
+                                <button type="button" data-margin="20" class="margin-btn py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition">
+                                    <span class="w-5 h-6 border border-current rounded-sm p-1 flex"><span class="w-full h-full bg-current/30 rounded-xs"></span></span>
+                                    <span>Large (20mm)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Image Scaling & Compression -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="imageScale" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                                    Image Fit
+                                </label>
+                                <select id="imageScale" class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                    <option value="contain">Fit (Keep Ratio)</option>
+                                    <option value="stretch">Stretch to Fill</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="imageQuality" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                                    Compression
+                                </label>
+                                <select id="imageQuality" class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                    <option value="0.92">High Quality</option>
+                                    <option value="0.75">Balanced</option>
+                                    <option value="0.50">Small File Size</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Page Numbers Toggle -->
+                        <div class="flex items-center justify-between pt-1">
+                            <div>
+                                <p class="text-sm font-medium">Add Page Numbers</p>
+                                <p class="text-xs text-slate-400">Prints "Page X of Y" at the bottom</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="pageNumbersToggle" class="sr-only peer">
+                                <div class="w-10 h-6 bg-slate-200 dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Summary Stats Box -->
+                        <div class="p-3.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                            <span class="text-slate-500 dark:text-slate-400">Total Pages: <strong id="summaryPages" class="text-slate-800 dark:text-slate-100">0</strong></span>
+                            <span class="text-slate-500 dark:text-slate-400">Source Size: <strong id="summarySize" class="text-slate-800 dark:text-slate-100">0 KB</strong></span>
+                        </div>
+
+                        <!-- Primary Convert & Download Button -->
+                        <button id="convertBtn" disabled class="w-full py-3.5 px-5 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-slate-800 dark:disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed shadow-lg shadow-brand-500/25 disabled:shadow-none transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-file-arrow-down text-base"></i>
+                            <span id="convertBtnText">Convert & Download PDF</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Image Lightbox Modal -->
+    <div id="lightboxModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="relative max-w-3xl w-full bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+                <h4 id="lightboxTitle" class="text-sm font-semibold truncate">Image Preview</h4>
+                <button id="closeLightboxBtn" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-6 bg-slate-100 dark:bg-slate-950 flex items-center justify-center max-h-[75vh] overflow-auto">
+                <img id="lightboxImg" src="" alt="Preview" class="max-h-[65vh] max-w-full object-contain rounded-lg shadow transition-transform duration-300">
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirmation Modal (for Clear All) -->
+    <div id="confirmModal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold">Remove all images?</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">This will clear all uploaded images from your current workspace.</p>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+                <button id="cancelClearBtn" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition">
+                    Cancel
+                </button>
+                <button id="confirmClearBtn" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition">
+                    Yes, Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
+
+    <script>
+        /**
+         * Application State
+         */
+        let imagesList = []; // Array of { id, name, size, dataUrl, width, height, rotation }
+        let pdfConfig = {
+            pageSize: 'a4',
+            orientation: 'portrait',
+            margin: 10,
+            scale: 'contain',
+            quality: 0.92,
+            pageNumbers: false
+        };
+
+        // DOM Elements
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const workspaceSection = document.getElementById('workspaceSection');
+        const emptyState = document.getElementById('emptyState');
+        const imageGrid = document.getElementById('imageGrid');
+        const imageCountBadge = document.getElementById('imageCountBadge');
+        const summaryPages = document.getElementById('summaryPages');
+        const summarySize = document.getElementById('summarySize');
+        const convertBtn = document.getElementById('convertBtn');
+        const convertBtnText = document.getElementById('convertBtnText');
+        const pdfFileNameInput = document.getElementById('pdfFileName');
+        const pageSizeSelect = document.getElementById('pageSize');
+        const orientationContainer = document.getElementById('orientationContainer');
+        const imageScaleSelect = document.getElementById('imageScale');
+        const imageQualitySelect = document.getElementById('imageQuality');
+        const pageNumbersToggle = document.getElementById('pageNumbersToggle');
+
+        // Modals
+        const lightboxModal = document.getElementById('lightboxModal');
+        const lightboxImg = document.getElementById('lightboxImg');
+        const lightboxTitle = document.getElementById('lightboxTitle');
+        const confirmModal = document.getElementById('confirmModal');
+
+        /**
+         * Initialize SortableJS for Drag-and-Drop Grid Reordering
+         */
+        const sortableInstance = new Sortable(imageGrid, {
+            animation: 200,
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+            handle: '.drag-handle',
+            onEnd: function (evt) {
+                if (evt.oldIndex === evt.newIndex) return;
+                const movedItem = imagesList.splice(evt.oldIndex, 1)[0];
+                imagesList.splice(evt.newIndex, 0, movedItem);
+                renderGrid();
+            }
+        });
+
+        /**
+         * Theme Toggle Logic
+         */
+        document.getElementById('themeToggleBtn').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        /**
+         * Toast Notification Helper (Replaces alert)
+         */
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-emerald-600 text-white',
+                error: 'bg-rose-600 text-white',
+                info: 'bg-slate-800 dark:bg-slate-700 text-white'
+            };
+            const icons = {
+                success: 'fa-circle-check',
+                error: 'fa-circle-exclamation',
+                info: 'fa-circle-info'
+            };
+
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-xs font-medium transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type]}`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icons[type]} text-sm"></i>
+                <span class="flex-1">${message}</span>
+            `;
+            toastContainer.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        /**
+         * Format Bytes Helper
+         */
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 KB';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        /**
+         * File Upload & Drag-and-Drop Event Listeners
+         */
+        dropzone.addEventListener('click', () => fileInput.click());
+        document.getElementById('addMoreBtn').addEventListener('click', () => fileInput.click());
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('dropzone-active');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('dropzone-active');
+            });
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                handleFiles(files);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFiles(e.target.files);
+                fileInput.value = ''; // Reset so the same file can be re-added if needed
+            }
+        });
+
+        /**
+         * Process Selected Image Files
+         */
+        async function handleFiles(fileList) {
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            const filesArray = Array.from(fileList);
+            let addedCount = 0;
+
+            for (const file of filesArray) {
+                if (!validTypes.includes(file.type)) {
+                    showToast(`Skipped "${file.name}" (Unsupported format)`, 'error');
+                    continue;
+                }
+
+                try {
+                    const imageItem = await readImageFile(file);
+                    imagesList.push(imageItem);
+                    addedCount++;
+                } catch (err) {
+                    showToast(`Failed to load "${file.name}"`, 'error');
+                }
+            }
+
+            if (addedCount > 0) {
+                renderGrid();
+                showToast(`Added ${addedCount} image${addedCount > 1 ? 's' : ''}`, 'success');
+            }
+        }
+
+        /**
+         * Read File into DataURL and Extract Natural Dimensions
+         */
+        function readImageFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        resolve({
+                            id: 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8),
+                            name: file.name,
+                            size: file.size,
+                            dataUrl: e.target.result,
+                            width: img.naturalWidth,
+                            height: img.naturalHeight,
+                            rotation: 0
+                        });
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        /**
+         * Render Interactive Image Grid
+         */
+        function renderGrid() {
+            imageGrid.innerHTML = '';
+
+            if (imagesList.length === 0) {
+                workspaceSection.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                convertBtn.disabled = true;
+                imageCountBadge.textContent = '0';
+                summaryPages.textContent = '0';
+                summarySize.textContent = '0 KB';
+                return;
+            }
+
+            workspaceSection.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            convertBtn.disabled = false;
+
+            let totalBytes = 0;
+
+            imagesList.forEach((item, index) => {
+                totalBytes += item.size;
+
+                const card = document.createElement('div');
+                card.className = 'group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col';
+                card.dataset.id = item.id;
+
+                // Calculate effective dimensions after rotation
+                const isSideways = item.rotation === 90 || item.rotation === 270;
+                const displayW = isSideways ? item.height : item.width;
+                const displayH = isSideways ? item.width : item.height;
+
+                card.innerHTML = `
+                    <!-- Top Bar: Page Number & Drag Handle -->
+                    <div class="drag-handle cursor-grab active:cursor-grabbing px-3 py-2 bg-slate-50 dark:bg-slate-800/70 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-lg bg-brand-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">
+                                ${index + 1}
+                            </span>
+                            <span class="text-xs font-medium text-slate-600 dark:text-slate-300 truncate max-w-[130px]" title="${item.name}">
+                                ${item.name}
+                            </span>
+                        </div>
+                        <i class="fa-solid fa-grip-vertical text-slate-400 text-xs"></i>
+                    </div>
+
+                    <!-- Thumbnail Container -->
+                    <div class="relative h-44 bg-slate-100 dark:bg-slate-950/70 flex items-center justify-center p-4 overflow-hidden">
+                        <img src="${item.dataUrl}" alt="${item.name}"
+                            style="transform: rotate(${item.rotation}deg);"
+                            class="max-h-36 max-w-full object-contain rounded shadow-xs transition-transform duration-300 select-none pointer-events-none">
+                        
+                        <!-- Rotation Badge (if rotated) -->
+                        ${item.rotation !== 0 ? `
+                            <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/75 text-white text-[10px] font-semibold backdrop-blur-xs">
+                                ${item.rotation}°
+                            </span>
+                        ` : ''}
+
+                        <!-- Quick Zoom Button -->
+                        <button type="button" onclick="openLightbox('${item.id}')"
+                            class="absolute top-2 right-2 w-7 h-7 rounded-lg bg-slate-900/60 hover:bg-slate-900/90 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Preview Image">
+                            <i class="fa-solid fa-magnifying-glass-plus"></i>
+                        </button>
+                    </div>
+
+                    <!-- Card Footer: Meta Info & Action Controls -->
+                    <div class="p-3 space-y-2.5 flex-1 flex flex-col justify-between bg-white dark:bg-slate-900">
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
+                            <span>${displayW} × ${displayH} px</span>
+                            <span>${formatBytes(item.size)}</span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                            <!-- Move Left / Up -->
+                            <button type="button" onclick="moveImage(${index}, -1)" ${index === 0 ? 'disabled' : ''}
+                                class="p-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition"
+                                title="Move Backward">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+
+                            <!-- Move Right / Down -->
+                            <button type="button" onclick="moveImage(${index}, 1)" ${index === imagesList.length - 1 ? 'disabled' : ''}
+                                class="p-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition"
+                                title="Move Forward">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+
+                            <div class="h-3 w-px bg-slate-200 dark:bg-slate-700"></div>
+
+                            <!-- Rotate Counter-Clockwise -->
+                            <button type="button" onclick="rotateImage('${item.id}', -90)"
+                                class="p-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-brand-50 dark:hover:bg-brand-500/10 hover:text-brand-600 transition"
+                                title="Rotate Left 90°">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </button>
+
+                            <!-- Rotate Clockwise -->
+                            <button type="button" onclick="rotateImage('${item.id}', 90)"
+                                class="p-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-brand-50 dark:hover:bg-brand-500/10 hover:text-brand-600 transition"
+                                title="Rotate Right 90°">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+
+                            <div class="h-3 w-px bg-slate-200 dark:bg-slate-700"></div>
+
+                            <!-- Delete Image -->
+                            <button type="button" onclick="deleteImage('${item.id}')"
+                                class="p-1.5 rounded-lg text-xs text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
+                                title="Remove Image">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                imageGrid.appendChild(card);
+            });
+
+            imageCountBadge.textContent = imagesList.length;
+            summaryPages.textContent = imagesList.length;
+            summarySize.textContent = formatBytes(totalBytes);
+        }
+
+        /**
+         * Card Actions: Move, Rotate, Delete, Lightbox
+         */
+        window.moveImage = function(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= imagesList.length) return;
+            const temp = imagesList[index];
+            imagesList[index] = imagesList[newIndex];
+            imagesList[newIndex] = temp;
+            renderGrid();
+        };
+
+        window.rotateImage = function(id, angle) {
+            const item = imagesList.find(img => img.id === id);
+            if (!item) return;
+            item.rotation = (item.rotation + angle + 360) % 360;
+            renderGrid();
+        };
+
+        window.deleteImage = function(id) {
+            imagesList = imagesList.filter(img => img.id !== id);
+            renderGrid();
+            showToast('Image removed', 'info');
+        };
+
+        window.openLightbox = function(id) {
+            const item = imagesList.find(img => img.id === id);
+            if (!item) return;
+            lightboxTitle.textContent = `${item.name} (${item.width}×${item.height}px)`;
+            lightboxImg.src = item.dataUrl;
+            lightboxImg.style.transform = `rotate(${item.rotation}deg)`;
+            lightboxModal.classList.remove('hidden');
+        };
+
+        document.getElementById('closeLightboxBtn').addEventListener('click', () => {
+            lightboxModal.classList.add('hidden');
+        });
+        lightboxModal.addEventListener('click', (e) => {
+            if (e.target === lightboxModal) lightboxModal.classList.add('hidden');
+        });
+
+        /**
+         * Batch Toolbar Actions
+         */
+        document.getElementById('sortAZBtn').addEventListener('click', () => {
+            imagesList.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+            renderGrid();
+            showToast('Sorted images alphabetically', 'info');
+        });
+
+        document.getElementById('rotateAllBtn').addEventListener('click', () => {
+            imagesList.forEach(item => {
+                item.rotation = (item.rotation + 90) % 360;
+            });
+            renderGrid();
+            showToast('Rotated all images 90°', 'info');
+        });
+
+        document.getElementById('clearAllBtn').addEventListener('click', () => {
+            confirmModal.classList.remove('hidden');
+        });
+
+        document.getElementById('cancelClearBtn').addEventListener('click', () => {
+            confirmModal.classList.add('hidden');
+        });
+
+        document.getElementById('confirmClearBtn').addEventListener('click', () => {
+            imagesList = [];
+            renderGrid();
+            confirmModal.classList.add('hidden');
+            showToast('All images cleared', 'info');
+        });
+
+        /**
+         * Settings Panel UI Logic
+         */
+        function updateOptionButtons(selector, activeValue, dataAttr) {
+            document.querySelectorAll(selector).forEach(btn => {
+                const isMatch = btn.getAttribute(dataAttr) === String(activeValue);
+                if (isMatch) {
+                    btn.className = btn.className.replace(/border-slate-\S+|text-slate-\S+|bg-transparent/g, '');
+                    btn.classList.add('border-brand-600', 'bg-brand-50/80', 'dark:bg-brand-500/15', 'text-brand-600', 'dark:text-brand-400', ' ring-1', 'ring-brand-500');
+                } else {
+                    btn.classList.remove('border-brand-600', 'bg-brand-50/80', 'dark:bg-brand-500/15', 'text-brand-600', 'dark:text-brand-400', 'ring-1', 'ring-brand-500');
+                    btn.classList.add('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+                }
+            });
+        }
+
+        // Initialize button styles
+        updateOptionButtons('.orient-btn', pdfConfig.orientation, 'data-orientation');
+        updateOptionButtons('.margin-btn', pdfConfig.margin, 'data-margin');
+
+        document.querySelectorAll('.orient-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                pdfConfig.orientation = btn.getAttribute('data-orientation');
+                updateOptionButtons('.orient-btn', pdfConfig.orientation, 'data-orientation');
+            });
+        });
+
+        document.querySelectorAll('.margin-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                pdfConfig.margin = parseInt(btn.getAttribute('data-margin'), 10);
+                updateOptionButtons('.margin-btn', pdfConfig.margin, 'data-margin');
+            });
+        });
+
+        pageSizeSelect.addEventListener('change', (e) => {
+            pdfConfig.pageSize = e.target.value;
+            // Dim orientation options if "Fit to Image" is selected
+            if (pdfConfig.pageSize === 'fit') {
+                orientationContainer.classList.add('opacity-40', 'pointer-events-none');
+            } else {
+                orientationContainer.classList.remove('opacity-40', 'pointer-events-none');
+            }
+        });
+
+        imageScaleSelect.addEventListener('change', (e) => {
+            pdfConfig.scale = e.target.value;
+        });
+
+        imageQualitySelect.addEventListener('change', (e) => {
+            pdfConfig.quality = parseFloat(e.target.value);
+        });
+
+        pageNumbersToggle.addEventListener('change', (e) => {
+            pdfConfig.pageNumbers = e.target.checked;
+        });
+
+        document.getElementById('resetSettingsBtn').addEventListener('click', () => {
+            pdfConfig = {
+                pageSize: 'a4',
+                orientation: 'portrait',
+                margin: 10,
+                scale: 'contain',
+                quality: 0.92,
+                pageNumbers: false
+            };
+            pdfFileNameInput.value = 'converted-images';
+            pageSizeSelect.value = 'a4';
+            imageScaleSelect.value = 'contain';
+            imageQualitySelect.value = '0.92';
+            pageNumbersToggle.checked = false;
+            orientationContainer.classList.remove('opacity-40', 'pointer-events-none');
+            updateOptionButtons('.orient-btn', pdfConfig.orientation, 'data-orientation');
+            updateOptionButtons('.margin-btn', pdfConfig.margin, 'data-margin');
+            showToast('PDF settings reset to default', 'info');
+        });
+
+        /**
+         * Helper: Render Image with Rotation & White Background onto Offscreen Canvas
+         * Handles WEBP conversion, PNG transparency, and 90/180/270 degree rotations cleanly.
+         */
+        function processImageForPdf(item, quality) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    const isSideways = item.rotation === 90 || item.rotation === 270;
+                    canvas.width = isSideways ? img.naturalHeight : img.naturalWidth;
+                    canvas.height = isSideways ? img.naturalWidth : img.naturalHeight;
+
+                    // Fill white background so transparent PNGs/WEBPs don't turn black in JPEG
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    ctx.save();
+                    ctx.translate(canvas.width / 2, canvas.height / 2);
+                    ctx.rotate((item.rotation * Math.PI) / 180);
+                    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+                    ctx.restore();
+
+                    const processedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve({
+                        dataUrl: processedDataUrl,
+                        width: canvas.width,
+                        height: canvas.height
+                    });
+                };
+                img.onerror = reject;
+                img.src = item.dataUrl;
+            });
+        }
+
+        /**
+         * Generate and Download PDF using jsPDF
+         */
+        convertBtn.addEventListener('click', async () => {
+            if (imagesList.length === 0) return;
+
+            const { jsPDF } = window.jspdf;
+            convertBtn.disabled = true;
+            const originalText = convertBtnText.textContent;
+
+            try {
+                let pdf = null;
+                const margin = pdfConfig.margin; // in mm
+
+                for (let i = 0; i < imagesList.length; i++) {
+                    convertBtnText.textContent = `Processing page ${i + 1} of ${imagesList.length}...`;
+
+                    const item = imagesList[i];
+                    const processed = await processImageForPdf(item, pdfConfig.quality);
+
+                    // Determine page dimensions and orientation for this image
+                    if (pdfConfig.pageSize === 'fit') {
+                        // Convert pixels to mm (1px ≈ 0.264583 mm)
+                        const pxToMm = 0.264583;
+                        const imgW_mm = processed.width * pxToMm;
+                        const imgH_mm = processed.height * pxToMm;
+                        const pageW = imgW_mm + margin * 2;
+                        const pageH = imgH_mm + margin * 2;
+                        const orient = pageW > pageH ? 'l' : 'p';
+
+                        if (i === 0) {
+                            pdf = new jsPDF({
+                                orientation: orient,
+                                unit: 'mm',
+                                format: [pageW, pageH]
+                            });
+                        } else {
+                            pdf.addPage([pageW, pageH], orient);
+                        }
+
+                        pdf.addImage(processed.dataUrl, 'JPEG', margin, margin, imgW_mm, imgH_mm);
+
+                        if (pdfConfig.pageNumbers) {
+                            drawPageFooter(pdf, i + 1, imagesList.length, pageW, pageH);
+                        }
+                    } else {
+                        // Standard Page Size: A4 or Letter
+                        let pageOrient = 'p';
+                        if (pdfConfig.orientation === 'landscape') {
+                            pageOrient = 'l';
+                        } else if (pdfConfig.orientation === 'auto') {
+                            pageOrient = processed.width > processed.height ? 'l' : 'p';
+                        }
+
+                        if (i === 0) {
+                            pdf = new jsPDF({
+                                orientation: pageOrient,
+                                unit: 'mm',
+                                format: pdfConfig.pageSize
+                            });
+                        } else {
+                            pdf.addPage(pdfConfig.pageSize, pageOrient);
+                        }
+
+                        const pageW = pdf.internal.pageSize.getWidth();
+                        const pageH = pdf.internal.pageSize.getHeight();
+
+                        // Reserve extra bottom space if page numbers are active
+                        const footerOffset = pdfConfig.pageNumbers ? 6 : 0;
+                        const availW = Math.max(10, pageW - margin * 2);
+                        const availH = Math.max(10, pageH - margin * 2 - footerOffset);
+
+                        let drawW, drawH, drawX, drawY;
+
+                        if (pdfConfig.scale === 'stretch') {
+                            drawW = availW;
+                            drawH = availH;
+                            drawX = margin;
+                            drawY = margin;
+                        } else {
+                            // Contain / Fit inside margins while preserving aspect ratio
+                            const imgRatio = processed.width / processed.height;
+                            const pageRatio = availW / availH;
+
+                            if (imgRatio > pageRatio) {
+                                drawW = availW;
+                                drawH = availW / imgRatio;
+                            } else {
+                                drawH = availH;
+                                drawW = availH * imgRatio;
+                            }
+
+                            drawX = margin + (availW - drawW) / 2;
+                            drawY = margin + (availH - drawH) / 2;
+                        }
+
+                        pdf.addImage(processed.dataUrl, 'JPEG', drawX, drawY, drawW, drawH);
+
+                        if (pdfConfig.pageNumbers) {
+                            drawPageFooter(pdf, i + 1, imagesList.length, pageW, pageH);
+                        }
+                    }
+                }
+
+                // Sanitize filename and save PDF
+                let rawName = pdfFileNameInput.value.trim() || 'converted-images';
+                rawName = rawName.replace(/\.pdf$/i, '');
+                pdf.save(`${rawName}.pdf`);
+
+                showToast(`Downloaded "${rawName}.pdf" successfully!`, 'success');
+            } catch (error) {
+                console.error(error);
+                showToast('An error occurred while generating the PDF.', 'error');
+            } finally {
+                convertBtn.disabled = false;
+                convertBtnText.textContent = originalText;
+            }
+        });
+
+        /**
+         * Draw Page Number Footer
+         */
+        function drawPageFooter(pdf, current, total, pageW, pageH) {
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(9);
+            pdf.setTextColor(120, 120, 120);
+            pdf.text(`Page ${current} of ${total}`, pageW / 2, pageH - 5, { align: 'center' });
+        }
+
+        /**
+         * Generate Sample Demo Images on Canvas for Instant User Testing
+         */
+        document.getElementById('loadDemoBtn').addEventListener('click', () => {
+            const demoTemplates = [
+                { title: 'Project Cover Page', subtitle: 'Q4 Architecture Overview', bg1: '#4f46e5', bg2: '#7c3aed', w: 1200, h: 1600 },
+                { title: 'Financial Chart', subtitle: 'Annual Revenue Growth (Landscape)', bg1: '#059669', bg2: '#0d9488', w: 1600, h: 1100 },
+                { title: 'Product Mockup', subtitle: 'Mobile UI Wireframe Notes', bg1: '#e11d48', bg2: '#f97316', w: 1200, h: 1600 }
+            ];
+
+            demoTemplates.forEach((tpl, idx) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = tpl.w;
+                canvas.height = tpl.h;
+                const ctx = canvas.getContext('2d');
+
+                // Gradient Background
+                const grad = ctx.createLinearGradient(0, 0, tpl.w, tpl.h);
+                grad.addColorStop(0, tpl.bg1);
+                grad.addColorStop(1, tpl.bg2);
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, tpl.w, tpl.h);
+
+                // Decorative shapes
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.beginPath();
+                ctx.arc(tpl.w * 0.8, tpl.h * 0.2, 260, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(tpl.w * 0.2, tpl.h * 0.85, 320, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Card Frame
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                ctx.lineWidth = 8;
+                ctx.strokeRect(80, 80, tpl.w - 160, tpl.h - 160);
+
+                // Text Content
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 72px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(tpl.title, tpl.w / 2, tpl.h / 2 - 20);
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                ctx.font = '40px Inter, sans-serif';
+                ctx.fillText(tpl.subtitle, tpl.w / 2, tpl.h / 2 + 55);
+
+                ctx.font = 'bold 32px Inter, sans-serif';
+                ctx.fillText(`SAMPLE IMAGE #${idx + 1} (${tpl.w}×${tpl.h})`, tpl.w / 2, tpl.h - 150);
+
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                imagesList.push({
+                    id: 'demo_' + Date.now() + '_' + idx,
+                    name: `sample-slide-${idx + 1}.jpg`,
+                    size: Math.round(dataUrl.length * 0.75),
+                    dataUrl: dataUrl,
+                    width: tpl.w,
+                    height: tpl.h,
+                    rotation: 0
+                });
+            });
+
+            renderGrid();
+            showToast('Loaded 3 sample images for testing!', 'success');
+        });
+    </script>
+</body>
+</html>
